@@ -1,0 +1,174 @@
+%!PS-Adobe-3.0
+
+
+(../../ps-steal/steal.ps) run
+
+(../../ps-math/) stealfolder
+(../../ps-eskd/) stealfolder
+
+% Нарисовать график параметрической функции
+% @param fun функция отображающая число на пару координат t fun -> x y
+% @param a, b - начало и конец графика
+% @param step - наибольший шаг ломаной, приближающей график
+% [fun, a, b, step]
+/f-curve {
+	0 dict begin
+		/step exch def
+		/b exch def
+		/a exch def
+		/fun exch def
+		
+		newpath
+		mark
+		a a fun
+		b b fun
+		moveto
+		/currentargument exch def
+		
+		{
+			dup mark eq {exit} if % если дошли до маркера - выходим из цикла
+			% [t, Px, Py]
+			2dup currentpoint 2sub 2abs %считаем расстояние следующей точки от текущей
+			% [t, Px, Py, l]
+			step le
+			{
+				% расстояние не больше шага, рисуем линию
+				% [t, Px, Py]
+				lineto
+				/currentargument exch def
+				%[]
+			}
+			{
+				% расстояние больше шага, добавляем промежуточную точку
+				% add middle arg
+				% [t, Px, Py]
+				2 index currentargument add 2 div % рассчитаем средний аргумент
+				dup fun
+				% [t, Px, Py, t', Px', Py']
+			}
+			ifelse
+			
+		} loop
+		
+		pop % вытряхнуть маркер
+		stroke
+	end
+} def
+
+
+/circle {
+	newpath 0 360 arc closepath
+} def
+
+
+/toRad {
+	180 div
+	PI mul
+} def
+
+/toDeg {
+	PI div
+	180 mul
+} def
+
+
+% \phi в радианах
+/involute {
+	0 dict begin
+		/phi exch def
+		phi radTan
+		phi sub
+	end
+} def
+
+/radSin {toDeg sin} def
+/radCos {toDeg cos} def
+/radTan {toDeg tan} def
+/acosDeg {
+  % зажимаем x в [-1, 1]
+  %dup 1.0 gt { pop 1.0 } { dup -1.0 lt { pop -1.0 } if } ifelse
+  % y = sqrt(1 - x*x), с защитой от отрицательного нуля погрешности
+  dup 
+  dup mul 1.0 exch sub
+  dup 0.0 lt { pop 0.0 } if
+  sqrt
+  exch
+  atan
+} def
+
+% phi в радианах
+/involute-point {
+	0 dict begin
+		/phi exch def
+		/rho r_b phi radCos div def
+		% без углового смещения, только эвольвента
+		/theta offset_theta phi involute sub def % в радианах
+		
+		%/vartheta theta toDeg def % в градусах
+		rho theta radSin mul
+		rho theta radCos mul
+	end
+} def
+% x, y
+
+
+
+% ====
+
+in2mm
+
+0.4 setlinewidth
+
+210 297 2 2div translate
+
+/m 10 def
+/z 20 def
+/alpha 20 def % в градусах
+/r_b m z mul alpha cos mul 2 div def
+
+/r m z mul 2 div def % делительная окружность (совпадает с начальной)
+/r_a r m add def % окружность вершин
+/r_f r 1.25 m mul sub def %окружность впадин
+/offset_theta 
+	PI 2 div z div 
+	alpha toRad involute add 
+def % в радианах
+
+/phi_a 
+	r_b r_a div
+	acosDeg
+def
+
+gsave
+0.2 setlinewidth
+0 0 r_b circle stroke
+0 0 r circle stroke
+0 0 r_a circle stroke
+0 0 r_f circle stroke
+0 -100 moveto 0 100 lineto stroke
+grestore
+
+
+
+offset_theta toDeg ==
+r_b ==
+phi_a ==
+PI 2 div z div toDeg neg rotate
+{toRad involute-point} 0 50 0.01 f-curve
+gsave
+-1 1 scale
+{toRad involute-point} 0 50 0.01 f-curve
+grestore
+
+gsave
+z 1 sub
+{
+360 z div rotate
+{toRad involute-point} 0 phi_a 0.1 f-curve
+gsave
+-1 1 scale
+{toRad involute-point} 0 phi_a 0.1 f-curve
+grestore
+}
+repeat
+grestore
