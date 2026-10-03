@@ -1,0 +1,101 @@
+%!PS-Adobe-3.0
+%%Title: Inverse Involute via Higher-Order Function in PostScript
+%%LanguageLevel: 2
+
+% ==========================================
+% ФУНКЦИЯ ВЫСШЕГО ПОРЯДКА: createInverseNewton
+% Вход в стеке: maxIter tol df f
+% Выход: [процедура-замыкание]
+% ==========================================
+/createInverseNewton {
+    4 dict begin
+        /f exch def
+        /df exch def
+        /tol exch def
+        /maxIter exch def
+        
+        % Создаем и возвращаем исполняемый массив (замыкание через локальный словарь)
+        currentdict [ 
+            /ctx exch def % Сохраняем ссылку на текущий словарь контекста
+            /y exch def   % Принимает целевое значение y
+            /x0 exch def  % Принимает начальное приближение x0
+            
+            % Активируем словарь контекста внутри возвращаемой функции
+            ctx begin
+            /x x0 def
+            
+            % Цикл Ньютона-Рафсона
+            maxIter {
+                % Вычисляем fx = f(x) - y
+                x f cvx exec y sub /fx exch def
+                
+                % Вычисляем dfx = df(x)
+                x df cvx exec /dfx exch def
+                
+                % Защита от деления на ноль: если |dfx| < 1e-12, ставим 1e-12
+                dfx abs 1e-12 lt { 
+                    dfx 0.0 ge { /dfx 1e-12 def } { /dfx -1e-12 def } ifelse 
+                } if
+                
+                % delta = fx / dfx
+                fx dfx div /delta exch def
+                
+                % x = x - delta
+                x delta sub /x exch def
+                
+                % Условие выхода: if (|delta| < tol) break
+                delta abs tol lt { exit } if
+            } repeat
+            
+            x % Оставляем результат на вершине стека
+            end
+        ] cvx
+    end
+} def
+
+% ==========================================
+% ОПРЕДЕЛЕНИЕ МАТЕМАТИЧЕСКИХ ФУНКЦИЙ
+% ==========================================
+
+% Задаем функцию инволюты: inv(alpha) = tan(alpha) - alpha
+% В PostScript тригонометрия работает в градусах, поэтому конвертируем в радианы
+/involute {
+    dup 57.295779513 mul tan exch sub
+} def
+
+% Задаем производную инволюты: inv'(alpha) = tan^2(alpha)
+/dInvolute {
+    57.295779513 mul tan dup mul
+} def
+
+% ==========================================
+% ИНИЦИАЛИЗАЦИЯ И ТЕСТИРОВАНИЕ
+% ==========================================
+
+% Создаем обратную функцию: передаем (maxIter, tol, df, f)
+20 1e-12 /dInvolute /involute createInverseNewton /inverseInvolute exch def
+
+% Целевое значение theta > 1 (например, theta = 2.5)
+/thetaTarget 2.5 def
+
+% Вычисляем начальное приближение (кубический корень из 3*theta)
+% В PostScript нет cbrt, делаем через ln и exp (ln(x)/3 exp)
+3.0 thetaTarget mul ln 3.0 div exp /initialGuess exch def
+
+% Вызываем созданную нами обратную функцию
+% Передаем в стек: initialGuess thetaTarget
+initialGuess thetaTarget inverseInvolute /alphaResult exch def
+
+% ==========================================
+% ВЫВОД РЕЗУЛЬТАТОВ В КОНСОЛЬ
+% ==========================================
+(/-----------------------------------------) =
+(Target theta: ) print thetaTarget ==
+(Calculated alpha (rad): ) print alphaResult ==
+(Calculated alpha (deg): ) print alphaResult 57.295779513 mul ==
+
+% Проверка обратным счетом
+(Check (inv(alpha)): ) print alphaResult involute ==
+(/-----------------------------------------) =
+
+showpage
